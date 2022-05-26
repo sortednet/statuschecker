@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  statuschecker:
+    build: .
+  db:
+    image: postgres:11.10-alpine
+    platform: linux/amd64
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: statuschecker
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: statuschecker

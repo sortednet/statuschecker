@@ -1,0 +1,8 @@
+version: 1
+packages:
+  - path: internal/store/
+    name: store
+    engine: "postgresql"
+    schema: db/migrations/
+    queries: db/queries/
+    emit_json_tags: false
