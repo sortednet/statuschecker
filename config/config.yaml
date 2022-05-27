@@ -1,0 +1,10 @@
+logLevel: DEBUG
+pollInterval: 30s
+healthCheckTimeout: 5s
+webPort: 8080
+
+dbUser: statuschecker
+dbPassword: password
+dbHost: localhost
+dbPort: 5432
+dbName: statuschecker

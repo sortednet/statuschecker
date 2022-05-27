@@ -1,0 +1,102 @@
+openapi: "3.0.0"
+info:
+  version: 0.0.1
+  description: Service Checker Service
+  title: Service Checker Service
+  contact:
+    name: Douglas Barthram
+
+servers:
+  - url: http://unknown/api
+
+
+paths:
+  /service:
+    post:
+      summary: Add Service
+      description: Add a service to keep the status for
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+      responses:
+        '200':
+          description: Successfully processed
+        '400':
+          description: Bad request
+        '500':
+          description: Error processing
+  /service/{name}:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+    delete:
+      summary: Remove Service
+      description: Remove a service to keep the status for
+      operationId: unregister
+      responses:
+        '204':
+          description: Successfully processed
+        '404':
+          description: Bad request
+        '500':
+          description: Error processing
+  /status:
+    get:
+      summary: get all service status
+      operationId: getAllStatus
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatusList'
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Healthy
+        '500':
+          description: Unhealthy
+
+components:
+  schemas:
+    Service:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+      required:
+        - name
+        - url
+
+    ServiceList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Service'
+
+    ServiceStatus:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+      required:
+        - name
+        - status
+
+    ServiceStatusList:
+      type: array
+      items:
+        $ref: '#/components/schemas/ServiceStatus'
+
