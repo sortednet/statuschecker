@@ -117,12 +117,6 @@ func configureWebController(config internal.Config, checker *statuschecker.Statu
 	controller := web.NewStatusCheckerController(checker)
 	web.RegisterHandlers(e, controller)
 
-	// Add echo metrics to promhtttp
-	//e.Use(echoPrometheus.MetricsMiddleware())
-	//e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	//e.GET("/ready", ready)
-	//e.GET("/alive", alive)
-
 	return e, nil
 }
 
