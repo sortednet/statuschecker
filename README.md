@@ -12,11 +12,11 @@ A HTTP api will have the registration and status retrieval functions
 ## Code
 
 ### Main Code
-openapispec.yaml  -  Defines the web API
-db/migrations     -  Defines the database migration scripts for managing the DB schema
-db/queries        -  Defines the SQL used by the app 
-internal/statuschecker/service.go   -  main implementation
-internal/web/controller.go - web API implementation
+* openapispec.yaml  -  Defines the web API
+* db/migrations     -  Defines the database migration scripts for managing the DB schema
+* db/queries        -  Defines the SQL used by the app 
+* internal/statuschecker/service.go   -  main implementation
+* internal/web/controller.go - web API implementation
 
 ### Generated code
 
