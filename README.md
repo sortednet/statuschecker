@@ -80,10 +80,10 @@ APP_POLLINTERVAL=5m bin/statuschecker
 
 ## Local Environment
 
-go 1.18
-docker
-mockgen `go install github.com/golang/mock/mockgen@v1.6.0`
-oapi-codegen - `go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen`
+* go 1.18
+* docker
+* mockgen `go install github.com/golang/mock/mockgen@v1.6.0`
+* oapi-codegen - `go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen`
 
 ### Database
 
