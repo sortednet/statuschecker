@@ -38,7 +38,7 @@ func main() {
 		logger.Fatal("Cannot load config", zap.Error(err))
 	}
 
-	logger, _ = configureLogging(appConfig)
+	logger, err = configureLogging(appConfig)
 	if err != nil {
 		logger.Error("Cannot configure logging", zap.Error(err))
 	}
