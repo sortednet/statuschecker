@@ -62,10 +62,9 @@ APP_POLLINTERVAL=5m bin/statuschecker
 
 # TODO
 
-1. Unit test controller
-2. Add a prometheus scrape point for monitoring and alerts
-3. echo using zap logging
-4. CI
+1. Unit test web controller
+2. echo using zap logging
+3. CI
    1. Dockerfile for app
    2. DockerCompose to also start app 
       1. Dockerfile for build
