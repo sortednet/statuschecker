@@ -68,11 +68,10 @@ func configureStatusChecker(config internal.Config, db *sql.DB) *statuschecker.S
 
 func configureLogging(config internal.Config) (*zap.Logger, error) {
 
-	logger, err := zap.NewProduction()
+	var cfg zap.Config = zap.NewProductionConfig()
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	// TODO - setup time format
-	//zaqpConfig := zap.NewProductionEncoderConfig()
-	//zaqpConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	logger, err := cfg.Build()
 
 	zap.ReplaceGlobals(logger)
 	return logger, err
