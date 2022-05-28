@@ -25,7 +25,11 @@ func TestStatusChecker_ServiceRegistration(t *testing.T) {
 	db := mocks.NewMockDbQuery(mockCtrl)
 	db.EXPECT().RegisterService(gomock.Any(), googleParams).Return(google, nil)
 	db.EXPECT().UnregisterService(gomock.Any(), googleParams.Name).Return(nil)
+	db.EXPECT().GetServices(gomock.Any()).Return([]store.Service{
+		google,
+	}, nil)
 	httpClient := mocks.NewMockHttpClient(mockCtrl)
+	httpClient.EXPECT().Get(gomock.Any()).Return(&http.Response{StatusCode: 200}, nil)
 
 	checker, err := NewStatusChecker(ctx, db, time.Minute, httpClient)
 	assert.NoError(t, err)
@@ -54,9 +58,9 @@ func TestStatusChecker_pollService(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	db := mocks.NewMockDbQuery(mockCtrl)
-	//db.EXPECT().GetServices(gomock.Any()).Return([]store.Service{
-	//	google,
-	//}, nil)
+	db.EXPECT().GetServices(gomock.Any()).Return([]store.Service{
+		google,
+	}, nil)
 
 	httpClient := mocks.NewMockHttpClient(mockCtrl)
 	httpClient.EXPECT().Get(google.Url).Return(&http.Response{StatusCode: 200}, nil)
