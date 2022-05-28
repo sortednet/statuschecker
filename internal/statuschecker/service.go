@@ -51,7 +51,7 @@ func NewStatusChecker(ctx context.Context, queries DbQuery, pollInterval time.Du
 		httpClient: httpClient,
 	}
 
-	checker.pollServices(ctx) // initialise the cache now
+	//checker.pollServices(ctx) // initialise the cache now
 
 	// update the status periodically
 	go func() {
