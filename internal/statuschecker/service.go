@@ -41,9 +41,9 @@ type DbQuery interface {
 	UnregisterService(ctx context.Context, name string) error
 }
 
-func NewStatusChecker(ctx context.Context, queries DbQuery, pollInterval time.Duration, httpClient HttpClient) (*StatusChecker, error) {
+func NewStatusChecker(queries DbQuery, pollInterval time.Duration, httpClient HttpClient) *StatusChecker {
 
-	checker := &StatusChecker{
+	return &StatusChecker{
 		queries:    queries,
 		cache:      map[string]Status{},
 		cacheLock:  sync.Mutex{},
@@ -51,26 +51,30 @@ func NewStatusChecker(ctx context.Context, queries DbQuery, pollInterval time.Du
 		httpClient: httpClient,
 	}
 
-	//checker.pollServices(ctx) // initialise the cache now
+}
+
+func (s *StatusChecker) StartPolling(ctx context.Context) {
+	err := s.pollServices(ctx) // initialise the cache now
+	if err != nil {
+		zap.L().Error("Error polling services for initial cache fill")
+	}
 
 	// update the status periodically
 	go func() {
 		for {
 			select {
-			case <-checker.ticker.C:
-				err := checker.pollServices(ctx)
+			case <-s.ticker.C:
+				err := s.pollServices(ctx)
 				if err != nil {
 					zap.L().Error("Error polling services")
 				}
 			case <-ctx.Done():
-				checker.ticker.Stop()
+				s.ticker.Stop()
 				zap.L().Info("stopped polling")
 				return
 			}
 		}
 	}()
-
-	return checker, nil
 }
 
 func (s *StatusChecker) pollServices(ctx context.Context) error {

@@ -38,33 +38,32 @@ func main() {
 		logger.Fatal("Cannot load config", zap.Error(err))
 	}
 
-	logger, err = configureLogging(appConfig)
+	logger, _ = configureLogging(appConfig)
+	if err != nil {
+		logger.Error("Cannot configure logging", zap.Error(err))
+	}
 	defer logger.Sync()
-	zap.ReplaceGlobals(logger)
 
 	db, err := configureDatabaseConnection(appConfig)
 	if err != nil {
 		logger.Fatal("Database not available", zap.Error(err))
 	}
 
-	checker, err := configureStatusChecker(appConfig, db)
-	if err != nil {
-		logger.Fatal("Status Checker cannot be created", zap.Error(err))
-	}
-
+	checker := configureStatusChecker(appConfig, db)
 	webServer, err := configureWebController(appConfig, checker)
 
+	pollContext := context.Background()
+	checker.StartPolling(pollContext)
+
 	webServer.Logger.Fatal(webServer.Start(fmt.Sprintf("0.0.0.0:%s", appConfig.WebPort)))
-	fmt.Println("Boo")
 }
 
-func configureStatusChecker(config internal.Config, db *sql.DB) (*statuschecker.StatusChecker, error) {
-	ctx := context.Background()
+func configureStatusChecker(config internal.Config, db *sql.DB) *statuschecker.StatusChecker {
 	queries := store.New(db)
 	httpClient := &http.Client{
 		Timeout: config.HealthCheckTimeout,
 	}
-	return statuschecker.NewStatusChecker(ctx, queries, config.PollInterval, httpClient)
+	return statuschecker.NewStatusChecker(queries, config.PollInterval, httpClient)
 }
 
 func configureLogging(config internal.Config) (*zap.Logger, error) {
@@ -75,6 +74,7 @@ func configureLogging(config internal.Config) (*zap.Logger, error) {
 	//zaqpConfig := zap.NewProductionEncoderConfig()
 	//zaqpConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
+	zap.ReplaceGlobals(logger)
 	return logger, err
 }
 
