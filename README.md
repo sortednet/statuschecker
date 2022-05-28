@@ -64,16 +64,15 @@ APP_POLLINTERVAL=5m bin/statuschecker
 
 1. Unit test controller
 2. Add a prometheus scrape point for monitoring and alerts
-3. Zap logging time format
-4. echo using zap logging
-5. CI
+3. echo using zap logging
+4. CI
    1. Dockerfile for app
    2. DockerCompose to also start app 
       1. Dockerfile for build
    3. docker-compose to build image as well as run it
    4. Build script ensuring GOARCH, GOOS etc are all setup for linux (as the image is linux/amd64)
 
-   
+
 # Development
 
 ## Tools
@@ -103,3 +102,15 @@ make dbdown
 ### Testing
 To test, start the DB, run the app and curl the API.  
 There are some example curl scripts in test/scripts 
+
+
+# Operations - running the app
+
+Prometheus metrics are available on `hostname:port/metrics`
+```
+curl localhost:8080/metrics
+```
+
+Alive check (status 200 if alive) on : `hostname:port/alive`
+
+Ready check (status 200 if ready) on : `hostname:port/ready`

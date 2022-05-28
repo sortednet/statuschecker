@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	echoPrometheus "github.com/globocom/echo-prometheus"
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sortednet/statuschecker/internal"
 	"github.com/sortednet/statuschecker/internal/statuschecker"
 	"github.com/sortednet/statuschecker/internal/store"
@@ -21,7 +23,8 @@ import (
 )
 
 var (
-	configFile string = "config/config.yaml"
+	configFile  string = "config/config.yaml"
+	initialised bool
 )
 
 func main() {
@@ -54,6 +57,8 @@ func main() {
 
 	pollContext := context.Background()
 	checker.StartPolling(pollContext)
+
+	initialised = true
 
 	webServer.Logger.Fatal(webServer.Start(fmt.Sprintf("0.0.0.0:%s", appConfig.WebPort)))
 }
@@ -108,10 +113,13 @@ func configureWebController(config internal.Config, checker *statuschecker.Statu
 	// that server names match. We don't know how this thing will be run.
 	swagger.Servers = nil
 
-	// This is how you set up a basic Echo router
 	e := echo.New()
 	// Log all requests
 	e.Use(echomiddleware.Logger()) // TODO - use the zap logger
+	e.Use(echoPrometheus.MetricsMiddleware())
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	e.GET("/ready", ready)
+	e.GET("/alive", alive)
 
 	controller := web.NewStatusCheckerController(checker)
 	web.RegisterHandlers(e, controller)
@@ -136,4 +144,16 @@ func appConfig() (config internal.Config, err error) {
 	zap.L().With(zap.Any("config", config)).Info("app config loaded")
 	return config, nil
 
+}
+
+func alive(webCtx echo.Context) error {
+	return nil
+}
+
+func ready(webCtx echo.Context) error {
+	if initialised {
+		return nil
+	}
+	webCtx.Response().Status = http.StatusServiceUnavailable
+	return fmt.Errorf("Not ready")
 }
