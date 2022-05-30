@@ -82,6 +82,12 @@ make dbinstall  # install the schema in the database. NB, wait a few seconds aft
 make run  # Run the application
 curl -v localhost:8080/ready # should get a 200 if app is ready to serve
 curl -v localhost:8080/metrics # get the metrics for the app (prometheus compatible)
+
+# Populate with some data
+./test/scripts/register.sh
+# See the services
+./test/scripts/status.sh # NB unknown until a poll has been run
+
 make stop # stops both the app and the database
 ```
 ## Tools
