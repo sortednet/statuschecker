@@ -1,7 +1,11 @@
 version: "3.9"
 services:
   statuschecker:
-    build: .
+    image: statuschecker
+    ports:
+      - "8080:8080"
+    environment:
+      APP_DBHOST: db
   db:
     image: postgres:11.10-alpine
     platform: linux/amd64

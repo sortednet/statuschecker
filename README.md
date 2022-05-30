@@ -1,52 +1,57 @@
 # statuschecker
-Example Status Checker server written in Golang
+Status Checker server checks the status of registered services.
+The services are checked by testing a HTTP endpoint registered with each service
 
 # Design
 
 The status checker will allow the registration of services and will periodically poll the given health 
-endpoint for each service. Registered services will be persisted to a database. Their current status will be cached in memory.
+endpoint for each service. Registered services will be persisted to a database. Each services current status is 
+be cached in memory.
 
 A HTTP api will have the registration and status retrieval functions
 
+# Code
 
-## Code
-
-### Main Code
+## Main Code
 * openapispec.yaml  -  Defines the web API
 * db/migrations     -  Defines the database migration scripts for managing the DB schema
 * db/queries        -  Defines the SQL used by the app 
 * internal/statuschecker/service.go   -  main implementation
 * internal/web/controller.go - web API implementation
 
-### Generated code
+## Generated code
 
 Much of the boilerplate code is generated.
 
-NB:
-local tools are currently relied on 
-```bash
-go install github.com/golang/mock/mockgen@v1.6.0
-go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen
-```
+* Database access code
+* Web service stubs and API model
+* Mocks
 
-#### Database
+Generation tools
+
+* github.com/golang/mock/mockgen@v1.6.0
+* github.com/deepmap/oapi-codegen/cmd/oapi-codegenv1.11.0
+* sqlc
+
+
+### Database
 
 migrate and sqlc are used for database interaction. The database code is all generated from the DDL nd SQL.
 
 To generate the code
 ```
-make generate
+make generate-db
 ```
 The generated code is written to internal/store
 
 
-#### Web API
+### Web API
 The web api code (models and server stub) is generated from the openapispec.yaml file
 The server stub generated is for the middleware.Echo server.
 
 To generate
 ```
-make webgen
+make generate-web
 ```
 
 # Configuration
@@ -64,33 +69,31 @@ APP_POLLINTERVAL=5m bin/statuschecker
 
 1. Unit test web controller
 2. echo using zap logging
-3. CI
-   1. Dockerfile for app
-   2. DockerCompose to also start app 
-      1. Dockerfile for build
-   3. docker-compose to build image as well as run it
-   4. Build script ensuring GOARCH, GOOS etc are all setup for linux (as the image is linux/amd64)
+
 
 
 # Development
 
+## Quick Start
+```bash
+make image # compile, test and create the docker image
+make dbup  # start the database
+make dbinstall  # install the schema in the database. NB, wait a few seconds after dbup for the database to start
+make run  # Run the application
+curl -v localhost:8080/ready # should get a 200 if app is ready to serve
+curl -v localhost:8080/metrics # get the metrics for the app (prometheus compatible)
+make stop # stops both the app and the database
+```
 ## Tools
-
-## Local Environment
 
 * go 1.18
 * docker
-* mockgen `go install github.com/golang/mock/mockgen@v1.6.0`
-* oapi-codegen - `go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen`
+* make
 
-### Database
+
+## Database
 
 The database can be run locally for development.
-The schema is created using `migrate`.
-
-```bash
-make dbinstall
-```
 
 The database is controlled using docker-compose via the makefile 
 ```bash
@@ -98,8 +101,15 @@ make dbup
 make dbdown
 ```
 
-### Testing
-To test, start the DB, run the app and curl the API.  
+The schema is created using `migrate`.
+
+```bash
+make dbinstall
+```
+
+
+## Testing
+To test, start the DB, run the app and curl the API (see quickstart above).  
 There are some example curl scripts in test/scripts 
 
 
@@ -111,5 +121,11 @@ curl localhost:8080/metrics
 ```
 
 Alive check (status 200 if alive) on : `hostname:port/alive`
+```
+curl -v localhost:8080/alive
+```
 
 Ready check (status 200 if ready) on : `hostname:port/ready`
+```
+curl -v localhost:8080/ready
+```
