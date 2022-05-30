@@ -2,6 +2,7 @@ package statuschecker
 
 import (
 	"context"
+	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/sortednet/statuschecker/internal/store"
 	"github.com/sortednet/statuschecker/test/mocks"
@@ -15,35 +16,45 @@ import (
 func TestStatusChecker_ServiceRegistration(t *testing.T) {
 
 	ctx := context.TODO()
+	testSvcName1 := "testSvc"
+	testSvcName2 := "testSvc2"
 
-	googleParams := store.RegisterServiceParams{
-		Name: "google",
-		Url:  "http://google.com",
-	}
-	google := store.Service{Name: googleParams.Name, Url: googleParams.Url}
+	reqParams1 := store.RegisterServiceParams{Name: testSvcName1, Url: "http://testservice.com"}
+	testService1 := store.Service{Name: reqParams1.Name, Url: reqParams1.Url}
+	reqParams2 := store.RegisterServiceParams{Name: testSvcName2, Url: "http://testservice2.com"}
+	testService2 := store.Service{Name: reqParams2.Name, Url: reqParams2.Url}
 
 	mockCtrl := gomock.NewController(t)
 	db := mocks.NewMockDbQuery(mockCtrl)
-	db.EXPECT().RegisterService(gomock.Any(), googleParams).Return(google, nil)
-	db.EXPECT().UnregisterService(gomock.Any(), googleParams.Name).Return(nil)
-	httpClient := mocks.NewMockHttpClient(mockCtrl)
+	db.EXPECT().RegisterService(gomock.Any(), reqParams1).Return(testService1, nil)
+	db.EXPECT().UnregisterService(gomock.Any(), reqParams1.Name).Return(nil)
+	db.EXPECT().RegisterService(gomock.Any(), reqParams2).Return(testService2, nil)
 
-	checker := NewStatusChecker(db, time.Minute, httpClient)
+	checker := NewStatusChecker(db, time.Minute, nil)
 	require.NotNil(t, checker)
 
 	// Check registration
-	status := checker.GetServiceStatus(ctx, "google")
+	status := checker.GetServiceStatus(ctx, testSvcName1)
 	assert.Empty(t, status, "Unregistered service status is always unknown")
 
-	err := checker.RegisterService(ctx, googleParams.Name, googleParams.Url)
+	err := checker.RegisterService(ctx, reqParams1.Name, reqParams1.Url)
 	require.NoError(t, err)
-	status = checker.GetServiceStatus(ctx, "google")
+	status = checker.GetServiceStatus(ctx, testSvcName1)
 	assert.Equal(t, Unknown, status, "Unknown as poll will not have run (not empty as it would be if unregistered")
 
+	err = checker.RegisterService(ctx, reqParams2.Name, reqParams2.Url)
+	require.NoError(t, err)
+	status = checker.GetServiceStatus(ctx, testSvcName2)
+	assert.Equal(t, Unknown, status, "Unknown as poll will not have run (not empty as it would be if unregistered")
+
+	all := checker.GetAllServiceStatus(ctx)
+	assert.Contains(t, all, ServiceStatus{Name: testSvcName1, Status: Unknown})
+	assert.Contains(t, all, ServiceStatus{Name: testSvcName2, Status: Unknown})
+
 	// Check unregistration
-	err = checker.UnregisterService(ctx, "google")
+	err = checker.UnregisterService(ctx, testSvcName1)
 	assert.NoError(t, err)
-	status = checker.GetServiceStatus(ctx, "google")
+	status = checker.GetServiceStatus(ctx, testSvcName1)
 	assert.Empty(t, status, "Should be no status after the service has be unregistered")
 
 }
@@ -51,24 +62,24 @@ func TestStatusChecker_ServiceRegistration(t *testing.T) {
 func TestStatusChecker_pollService(t *testing.T) {
 	ctx := context.TODO()
 
-	google := store.Service{Name: "google", Url: "http://google.com"}
-	down := store.Service{Name: "down", Url: "http://down.com"}
+	testSvcUp := store.Service{Name: "testSvcUp", Url: "http://testservice.com"}
+	testSvcDown := store.Service{Name: "testSvcDown", Url: "http://down.com"}
 
 	mockCtrl := gomock.NewController(t)
 	db := mocks.NewMockDbQuery(mockCtrl)
 
 	httpClient := mocks.NewMockHttpClient(mockCtrl)
-	httpClient.EXPECT().Get(google.Url).Return(&http.Response{StatusCode: 200}, nil)
-	httpClient.EXPECT().Get(down.Url).Return(&http.Response{StatusCode: 404}, nil)
+	httpClient.EXPECT().Get(testSvcUp.Url).Return(&http.Response{StatusCode: 200}, nil)
+	httpClient.EXPECT().Get(testSvcDown.Url).Return(nil, fmt.Errorf("Timeout"))
 
 	checker := NewStatusChecker(db, time.Minute, httpClient)
 	require.NotNil(t, checker)
 
-	checker.pollService(ctx, google)
-	status := checker.GetServiceStatus(ctx, "google")
+	checker.pollService(ctx, testSvcUp)
+	status := checker.GetServiceStatus(ctx, "testSvcUp")
 	assert.Equal(t, Up, status)
 
-	checker.pollService(ctx, down)
-	status = checker.GetServiceStatus(ctx, "down")
+	checker.pollService(ctx, testSvcDown)
+	status = checker.GetServiceStatus(ctx, "testSvcDown")
 	assert.Equal(t, Down, status)
 }
