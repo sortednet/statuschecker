@@ -42,7 +42,6 @@ type DbQuery interface {
 }
 
 // Interface to allow mocking of the service
-// NB This is really for the controller package but that causes import cycles with the mock
 type StatusService interface {
 	RegisterService(ctx context.Context, name, url string) error
 	UnregisterService(ctx context.Context, name string) error

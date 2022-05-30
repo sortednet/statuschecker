@@ -67,8 +67,7 @@ APP_POLLINTERVAL=5m bin/statuschecker
 
 # TODO
 
-1. Unit test web controller
-2. echo using zap logging
+1. echo using zap logging
 
 
 
