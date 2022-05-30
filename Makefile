@@ -45,8 +45,9 @@ generate-db:
 	docker run --rm -v $(PWD):/src -w /src kjconroy/sqlc:1.13.0 generate
 
 generate-mocks: install-mockgen
-	mockgen -destination test/mocks/queries.go -package mocks github.com/sortednet/statuschecker/internal/statuschecker DbQuery
-	mockgen -destination test/mocks/httpClient.go -package mocks github.com/sortednet/statuschecker/internal/statuschecker HttpClient
+	mockgen -destination internal/statuschecker/statuschecker_test/queries.go -package statuschecker github.com/sortednet/statuschecker/internal/statuschecker DbQuery
+	mockgen -destination internal/statuschecker/statuschecker_test/httpClient.go -package statuschecker github.com/sortednet/statuschecker/internal/statuschecker HttpClient
+	mockgen -destination internal/web/web_test/status_service.go -package web github.com/sortednet/statuschecker/internal/statuschecker StatusService
 
 
 generate-web: install-oapi-codegen

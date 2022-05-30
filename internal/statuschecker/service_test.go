@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/mock/gomock"
+	"github.com/sortednet/statuschecker/internal/statuschecker/statuschecker_test"
 	"github.com/sortednet/statuschecker/internal/store"
-	"github.com/sortednet/statuschecker/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -25,7 +25,7 @@ func TestStatusChecker_ServiceRegistration(t *testing.T) {
 	testService2 := store.Service{Name: reqParams2.Name, Url: reqParams2.Url}
 
 	mockCtrl := gomock.NewController(t)
-	db := mocks.NewMockDbQuery(mockCtrl)
+	db := statuschecker.NewMockDbQuery(mockCtrl)
 	db.EXPECT().RegisterService(gomock.Any(), reqParams1).Return(testService1, nil)
 	db.EXPECT().UnregisterService(gomock.Any(), reqParams1.Name).Return(nil)
 	db.EXPECT().RegisterService(gomock.Any(), reqParams2).Return(testService2, nil)
@@ -66,9 +66,9 @@ func TestStatusChecker_pollService(t *testing.T) {
 	testSvcDown := store.Service{Name: "testSvcDown", Url: "http://down.com"}
 
 	mockCtrl := gomock.NewController(t)
-	db := mocks.NewMockDbQuery(mockCtrl)
+	db := statuschecker.NewMockDbQuery(mockCtrl)
 
-	httpClient := mocks.NewMockHttpClient(mockCtrl)
+	httpClient := statuschecker.NewMockHttpClient(mockCtrl)
 	httpClient.EXPECT().Get(testSvcUp.Url).Return(&http.Response{StatusCode: 200}, nil)
 	httpClient.EXPECT().Get(testSvcDown.Url).Return(nil, fmt.Errorf("Timeout"))
 

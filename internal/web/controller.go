@@ -8,11 +8,18 @@ import (
 	"net/http"
 )
 
+//type StatusService interface {
+//	RegisterService(ctx context.Context, name, url string) error
+//	UnregisterService(ctx context.Context, name string) error
+//	GetAllServiceStatus(ctx context.Context) []statuschecker.ServiceStatus
+//	GetServiceStatus(ctx context.Context, name string) statuschecker.Status
+//}
+
 type StatusCheckerController struct {
-	statusChecker *statuschecker.StatusChecker
+	statusChecker statuschecker.StatusService
 }
 
-func NewStatusCheckerController(statusChecker *statuschecker.StatusChecker) *StatusCheckerController {
+func NewStatusCheckerController(statusChecker statuschecker.StatusService) *StatusCheckerController {
 	return &StatusCheckerController{
 		statusChecker: statusChecker,
 	}
@@ -33,6 +40,12 @@ func (s *StatusCheckerController) Register(webCtx echo.Context) error {
 	if err != nil {
 		log.Error("Error binding register service request", zap.Error(err))
 		return echo.NewHTTPError(http.StatusBadRequest, "Cannot bind to request")
+	}
+
+	if service.Name == "" || service.Url == "" {
+		log.Error("Invalid service request", zap.Any("service", service), zap.Error(err))
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing field(s) in request")
+
 	}
 
 	err = s.statusChecker.RegisterService(ctx, service.Name, service.Url)

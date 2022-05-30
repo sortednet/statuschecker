@@ -41,6 +41,15 @@ type DbQuery interface {
 	UnregisterService(ctx context.Context, name string) error
 }
 
+// Interface to allow mocking of the service
+// NB This is really for the controller package but that causes import cycles with the mock
+type StatusService interface {
+	RegisterService(ctx context.Context, name, url string) error
+	UnregisterService(ctx context.Context, name string) error
+	GetAllServiceStatus(ctx context.Context) []ServiceStatus
+	GetServiceStatus(ctx context.Context, name string) Status
+}
+
 func NewStatusChecker(queries DbQuery, pollInterval time.Duration, httpClient HttpClient) *StatusChecker {
 
 	return &StatusChecker{
