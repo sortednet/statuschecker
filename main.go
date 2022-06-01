@@ -52,23 +52,24 @@ func main() {
 		logger.Fatal("Database not available", zap.Error(err))
 	}
 
-	checker := configureStatusChecker(appConfig, db)
+	pollContext, cancel := context.WithCancel(context.Background())
+	checker := configureStatusChecker(appConfig, db, pollContext)
 	webServer, err := configureWebController(appConfig, checker)
 
-	pollContext := context.Background()
-	checker.StartPolling(pollContext)
+	checker.StartPolling()
 
 	initialised = true
 
 	webServer.Logger.Fatal(webServer.Start(fmt.Sprintf("0.0.0.0:%s", appConfig.WebPort)))
+	cancel() // as all the retrievers have the same context, they will all stop
 }
 
-func configureStatusChecker(config internal.Config, db *sql.DB) *statuschecker.StatusChecker {
+func configureStatusChecker(config internal.Config, db *sql.DB, pollContext context.Context) *statuschecker.StatusChecker {
 	queries := store.New(db)
 	httpClient := &http.Client{
 		Timeout: config.HealthCheckTimeout,
 	}
-	return statuschecker.NewStatusChecker(queries, config.PollInterval, httpClient)
+	return statuschecker.NewStatusChecker(pollContext, queries, config.PollInterval, httpClient)
 }
 
 func configureLogging(config internal.Config) (*zap.Logger, error) {

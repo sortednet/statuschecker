@@ -2,13 +2,11 @@ package statuschecker
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/sortednet/statuschecker/internal/statuschecker/statuschecker_test"
 	"github.com/sortednet/statuschecker/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
 	"testing"
 	"time"
 )
@@ -30,12 +28,15 @@ func TestStatusChecker_ServiceRegistration(t *testing.T) {
 	db.EXPECT().UnregisterService(gomock.Any(), reqParams1.Name).Return(nil)
 	db.EXPECT().RegisterService(gomock.Any(), reqParams2).Return(testService2, nil)
 
-	checker := NewStatusChecker(db, time.Minute, nil)
+	pollContext, cancel := context.WithCancel(ctx)
+	checker := NewStatusChecker(pollContext, db, time.Minute, nil)
+	defer cancel()
+
 	require.NotNil(t, checker)
 
 	// Check registration
 	status := checker.GetServiceStatus(ctx, testSvcName1)
-	assert.Empty(t, status, "Unregistered service status is always unknown")
+	assert.Equal(t, Unknown, status, "Unregistered service status is always unknown")
 
 	err := checker.RegisterService(ctx, reqParams1.Name, reqParams1.Url)
 	require.NoError(t, err)
@@ -55,31 +56,6 @@ func TestStatusChecker_ServiceRegistration(t *testing.T) {
 	err = checker.UnregisterService(ctx, testSvcName1)
 	assert.NoError(t, err)
 	status = checker.GetServiceStatus(ctx, testSvcName1)
-	assert.Empty(t, status, "Should be no status after the service has be unregistered")
+	assert.Equal(t, Unknown, status, "Should be no status after the service has been unregistered")
 
-}
-
-func TestStatusChecker_pollService(t *testing.T) {
-	ctx := context.TODO()
-
-	testSvcUp := store.Service{Name: "testSvcUp", Url: "http://testservice.com"}
-	testSvcDown := store.Service{Name: "testSvcDown", Url: "http://down.com"}
-
-	mockCtrl := gomock.NewController(t)
-	db := statuschecker.NewMockDbQuery(mockCtrl)
-
-	httpClient := statuschecker.NewMockHttpClient(mockCtrl)
-	httpClient.EXPECT().Get(testSvcUp.Url).Return(&http.Response{StatusCode: 200}, nil)
-	httpClient.EXPECT().Get(testSvcDown.Url).Return(nil, fmt.Errorf("Timeout"))
-
-	checker := NewStatusChecker(db, time.Minute, httpClient)
-	require.NotNil(t, checker)
-
-	checker.pollService(ctx, testSvcUp)
-	status := checker.GetServiceStatus(ctx, "testSvcUp")
-	assert.Equal(t, Up, status)
-
-	checker.pollService(ctx, testSvcDown)
-	status = checker.GetServiceStatus(ctx, "testSvcDown")
-	assert.Equal(t, Down, status)
 }

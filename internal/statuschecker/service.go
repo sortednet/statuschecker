@@ -6,7 +6,6 @@ import (
 	"github.com/sortednet/statuschecker/internal/store"
 	"go.uber.org/zap"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -28,11 +27,11 @@ type HttpClient interface {
 }
 
 type StatusChecker struct {
-	queries    DbQuery
-	cache      map[string]Status
-	cacheLock  sync.Mutex
-	ticker     *time.Ticker
-	httpClient HttpClient
+	queries      DbQuery
+	retrievers   map[string]*statusRetriever
+	pollInterval time.Duration
+	httpClient   HttpClient
+	pollContext  context.Context
 }
 
 type DbQuery interface {
@@ -49,95 +48,43 @@ type StatusService interface {
 	GetServiceStatus(ctx context.Context, name string) Status
 }
 
-func NewStatusChecker(queries DbQuery, pollInterval time.Duration, httpClient HttpClient) *StatusChecker {
+func NewStatusChecker(pollCtx context.Context, queries DbQuery, pollInterval time.Duration, httpClient HttpClient) *StatusChecker {
 
 	return &StatusChecker{
-		queries:    queries,
-		cache:      map[string]Status{},
-		cacheLock:  sync.Mutex{},
-		ticker:     time.NewTicker(pollInterval),
-		httpClient: httpClient,
+		queries:      queries,
+		retrievers:   map[string]*statusRetriever{},
+		pollInterval: pollInterval,
+		httpClient:   httpClient,
+		pollContext:  pollCtx,
 	}
-
 }
 
-func (s *StatusChecker) StartPolling(ctx context.Context) {
-	err := s.pollServices(ctx) // initialise the cache now
-	if err != nil {
-		zap.L().Error("Error polling services for initial cache fill")
-	}
+// Start a status retriever goroutine for each service
+func (s *StatusChecker) StartPolling() error {
 
-	// update the status periodically
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				err := s.pollServices(ctx)
-				if err != nil {
-					zap.L().Error("Error polling services")
-				}
-			case <-ctx.Done():
-				s.ticker.Stop()
-				zap.L().Info("stopped polling")
-				return
-			}
-		}
-	}()
-}
-
-func (s *StatusChecker) pollServices(ctx context.Context) error {
-	services, err := s.queries.GetServices(ctx)
+	services, err := s.queries.GetServices(s.pollContext)
 	if err != nil {
 		return err
 	}
 
 	for _, service := range services {
-		go s.pollService(ctx, service)
+		s.startRetriever(service.Name, service.Url)
 	}
 
 	return nil
 }
 
-func (s *StatusChecker) pollService(ctx context.Context, service store.Service) {
-
-	zap.L().Info("Poll Service", zap.Any("service", service))
-	resp, err := s.httpClient.Get(service.Url)
-
-	if err != nil {
-		zap.L().Error("Cannot get response from service",
-			zap.String("name", service.Name),
-			zap.String("url", service.Url),
-			zap.Error(err))
-
-		s.setServiceStatus(ctx, service.Name, Down) // cannot hit the service, assume it is down
-
-	} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		zap.L().Error("Bad response from service",
-			zap.Int("statusCode", resp.StatusCode),
-			zap.String("name", service.Name),
-			zap.String("url", service.Url),
-			zap.Error(err))
-
-		s.setServiceStatus(ctx, service.Name, Down)
-
-	} else {
-		s.setServiceStatus(ctx, service.Name, Up)
-	}
-}
-
 func (s *StatusChecker) RegisterService(ctx context.Context, name, url string) error {
 
-	_, err := s.queries.RegisterService(ctx, store.RegisterServiceParams{
-		Name: name,
-		Url:  url,
-	},
-	)
+	service, err := s.queries.RegisterService(ctx, store.RegisterServiceParams{Name: name, Url: url})
+
 	if err != nil {
 		return fmt.Errorf("Cannot add service %s to database %w", name, err)
 	}
 
-	s.setServiceStatus(ctx, name, Unknown)
+	s.startRetriever(name, url)
 
+	zap.L().Info("Registered service ", zap.Any("service", service))
 	return nil
 }
 
@@ -147,19 +94,19 @@ func (s *StatusChecker) UnregisterService(ctx context.Context, name string) erro
 	if err != nil {
 		return fmt.Errorf("Cannot remove service %s from database %w", name, err)
 	}
-	s.removeServiceStatus(ctx, name)
+	s.stopRetriever(name)
+
+	zap.L().Info("Unregistered service", zap.String("name", name))
 	return nil
 }
 
 func (s *StatusChecker) GetAllServiceStatus(ctx context.Context) []ServiceStatus {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-
 	allStatus := []ServiceStatus{}
-	for name, status := range s.cache {
+
+	for name, retriever := range s.retrievers {
 		allStatus = append(allStatus, ServiceStatus{
 			Name:   name,
-			Status: status,
+			Status: retriever.status,
 		})
 	}
 
@@ -167,22 +114,23 @@ func (s *StatusChecker) GetAllServiceStatus(ctx context.Context) []ServiceStatus
 }
 
 func (s *StatusChecker) GetServiceStatus(ctx context.Context, name string) Status {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
+	if retreiver, ok := s.retrievers[name]; ok {
+		return retreiver.getStatus()
+	}
 
-	return s.cache[name]
+	return Unknown
 }
 
-func (s *StatusChecker) setServiceStatus(ctx context.Context, name string, status Status) {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-
-	s.cache[name] = status
+func (s *StatusChecker) startRetriever(name, url string) {
+	s.stopRetriever(name) // just in case there is already one for this name already
+	retriever := newStatusRetriever(s.httpClient, name, url)
+	s.retrievers[name] = retriever
+	go retriever.start(s.pollContext, s.pollInterval)
 }
 
-func (s *StatusChecker) removeServiceStatus(ctx context.Context, name string) {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-
-	delete(s.cache, name)
+func (s *StatusChecker) stopRetriever(name string) {
+	if retriever, ok := s.retrievers[name]; ok {
+		close(retriever.quit)
+		delete(s.retrievers, name)
+	}
 }
